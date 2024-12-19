@@ -32,7 +32,7 @@ requests==2.32.3
 safetensors==0.4.5
 sympy==1.13.3
 tokenizers==0.21.0
-torch==2.5.1+cu121
+torch==2.5.1
 tqdm==4.67.1
 transformers==4.47.1
 typing-extensions==4.12.2
