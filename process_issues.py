@@ -19,17 +19,10 @@ def main(issues_json_path, repository, run_id):
         print(e)
         sys.exit(1)
 
-    # 設定されているユーザー名を確認
-    username = os.getenv('USERNAME')
-    if not username:
-        print("USERNAME が設定されていません。")
-        sys.exit(1)
-
     # Issues の読み込み
     with open(issues_json_path, 'r', encoding='utf-8') as f:
         issues_json = f.read()
     issues = json.loads(issues_json)
-    username = os.getenv('USERNAME')  # ユーザー名を環境変数から取得
     for issue in issues:
         title = issue['title']
         issue_number = issue['number']
@@ -78,7 +71,7 @@ def main(issues_json_path, repository, run_id):
         # アップロード先のURLを生成
         repo_name = f"{safe_model_name}_onnx_ort"
         encoded_repo_name = urllib.parse.quote(repo_name)
-        uploaded_model_url = f"https://huggingface.co/{username}/{encoded_repo_name}"
+        uploaded_model_url = f"https://huggingface.co/ort-community/{encoded_repo_name}"
 
         comment_body = f"モデル **{model_name}** の処理が完了しました。\n\nアップロード先: [{uploaded_model_url}]({uploaded_model_url})"
 
