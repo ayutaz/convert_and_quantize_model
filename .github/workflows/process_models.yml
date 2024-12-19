@@ -8,7 +8,7 @@ on:
 permissions:
   issues: write           # Issueの書き込み権限
   contents: write         # リポジトリコンテンツへの書き込み権限
-  pull-requests: write    # （必要に応じて追加）
+  pull-requests: write    
 
 jobs:
   process_models:
@@ -47,7 +47,7 @@ jobs:
         run: |
           echo '${{ steps.get_issues.outputs.issues }}' > issues.json
 
-      - name: モデルの処理（Dockerコンテナ内で実行)
+      - name: モデルの処理（Dockerコンテナ内で実行）
         if: steps.get_issues.outputs.issues != '[]'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -57,14 +57,14 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           docker run --rm \
-          -v ${{ github.workspace }}/issues.json:/app/issues.json \
-          -e HF_TOKEN \
-          -e GITHUB_TOKEN \
-          -e USERNAME \
-          -e REPOSITORY \
-          -e RUN_ID \
-          model-processor \
-          python process_issues.py "/app/issues.json" "$REPOSITORY" "$RUN_ID"
+            -v ${{ github.workspace }}/issues.json:/app/issues.json \
+            -e HF_TOKEN \
+            -e GITHUB_TOKEN \
+            -e USERNAME \
+            -e REPOSITORY \
+            -e RUN_ID \
+            model-processor \
+            python process_issues.py "/app/issues.json" "$REPOSITORY" "$RUN_ID"
 
       - name: 完了メッセージ
         if: steps.get_issues.outputs.issues == '[]'

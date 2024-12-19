@@ -6,6 +6,17 @@ import os
 import urllib.parse
 
 def main(issues_json_path, repository, run_id):
+    # GitHub CLI を認証
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if not github_token:
+        print("GITHUB_TOKEN が設定されていません。")
+        sys.exit(1)
+
+    # gh CLI を使用して認証
+    login_command = f'echo "{github_token}" | gh auth login --with-token'
+    subprocess.run(login_command, shell=True, check=True)
+
+    # Issues の読み込み
     with open(issues_json_path, 'r', encoding='utf-8') as f:
         issues_json = f.read()
     issues = json.loads(issues_json)
