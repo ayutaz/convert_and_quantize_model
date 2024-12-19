@@ -27,6 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install torch==2.5.1+cpu --index-url https://download.pytorch.org/whl/cpu
 
       - name: 古い順に処理すべきIssueを取得
         id: get_issues
