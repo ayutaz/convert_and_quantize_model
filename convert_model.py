@@ -154,32 +154,69 @@ def convert_to_ort(model_onnx_path, ort_model_path):
     print(f"ORT形式への変換を完了しました：{ort_model_path}")
 
 def create_readme(output_dir, model_name_or_path):
+    from huggingface_hub import HfApi
+    
+    # HfApiインスタンスの作成
+    api = HfApi()
+    
+    # モデル情報の取得
+    try:
+        model_info = api.model_info(repo_id=model_name_or_path)
+        license_info = model_info.license if model_info.license else "apache-2.0"
+    except Exception as e:
+        print(f"モデル情報の取得に失敗しました。デフォルトのライセンスを使用します。エラー：{e}")
+        license_info = "apache-2.0"
+    
+    # 元のモデルのURLを作成
+    original_model_url = f"https://huggingface.co/{model_name_or_path}"
+    
     readme_path = Path(output_dir) / "README.md"
     with open(readme_path, "w", encoding="utf-8") as f:
         # READMEのヘッダー部分を追加
         f.write("---\n")
-        f.write("license: apache-2.0\n")
-        f.write("- ja\n")
+        f.write(f"license: {license_info}\n")
         f.write("tags:\n")
         f.write("- onnx\n")
         f.write("- ort\n")
         f.write("---\n\n")
         f.write(f"# {model_name_or_path}のONNXおよびORTモデルと量子化モデル\n")
         f.write("\n")
-        f.write("このフォルダには、以下のモデルが含まれています。\n")
+        # 元のモデルへのハイパーリンクをREADMEに追加
+        f.write(f"このリポジトリは、元のモデル [{model_name_or_path}]({original_model_url}) をONNXおよびORT形式に変換し、さらに量子化したものです。\n")
         f.write("\n")
-        f.write("## ONNXモデル\n")
-        f.write(f"- {os.path.join('onnx_models', 'model.onnx')}: 元のONNXモデル\n")
-        f.write(f"- {os.path.join('onnx_models', 'model_opt.onnx')}: 最適化されたONNXモデル\n")
-        f.write(f"- {os.path.join('onnx_models', 'model_fp16.onnx')}: FP16による量子化モデル\n")
-        f.write(f"- {os.path.join('onnx_models', 'model_int8.onnx')}: INT8による量子化モデル\n")
-        f.write(f"- {os.path.join('onnx_models', 'model_uint8.onnx')}: UINT8による量子化モデル\n")
+        f.write("## ライセンス\n")
+        f.write(f"このモデルのライセンスは「{license_info}」です。詳細は元のモデルページ（[{model_name_or_path}]({original_model_url})）を参照してください。\n")
         f.write("\n")
-        f.write("## ORTモデル\n")
-        f.write(f"- {os.path.join('ort_models', 'model.ort')}: 最適化されたONNXモデルを使用したORTモデル\n")
-        f.write(f"- {os.path.join('ort_models', 'model_fp16.ort')}: FP16量子化モデルを使用したORTモデル\n")
-        f.write(f"- {os.path.join('ort_models', 'model_int8.ort')}: INT8量子化モデルを使用したORTモデル\n")
-        f.write(f"- {os.path.join('ort_models', 'model_uint8.ort')}: UINT8量子化モデルを使用したORTモデル\n")
+        f.write("## 使い方\n")
+        f.write("このモデルを使用するには、ONNX Runtimeをインストールし、以下のように推論を行います。\n")
+        f.write("```python\n")
+        f.write("# コード例\n")
+        f.write("import onnxruntime as ort\n")
+        f.write("session = ort.InferenceSession('path_to_model.onnx')\n")
+        f.write("# 入力の準備と推論の実行\n")
+        f.write("```\n")
+        f.write("\n")
+        f.write("## モデルの内容\n")
+        f.write("このリポジトリには、以下のモデルが含まれています。\n")
+        f.write("\n")
+        f.write("### ONNXモデル\n")
+        f.write("- `onnx_models/model.onnx`: 元のONNXモデル\n")
+        f.write("- `onnx_models/model_opt.onnx`: 最適化されたONNXモデル\n")
+        f.write("- `onnx_models/model_fp16.onnx`: FP16による量子化モデル\n")
+        f.write("- `onnx_models/model_int8.onnx`: INT8による量子化モデル\n")
+        f.write("- `onnx_models/model_uint8.onnx`: UINT8による量子化モデル\n")
+        f.write("\n")
+        f.write("### ORTモデル\n")
+        f.write("- `ort_models/model.ort`: 最適化されたONNXモデルを使用したORTモデル\n")
+        f.write("- `ort_models/model_fp16.ort`: FP16量子化モデルを使用したORTモデル\n")
+        f.write("- `ort_models/model_int8.ort`: INT8量子化モデルを使用したORTモデル\n")
+        f.write("- `ort_models/model_uint8.ort`: UINT8量子化モデルを使用したORTモデル\n")
+        f.write("\n")
+        f.write("## 注意事項\n")
+        f.write(f"元のモデル [{model_name_or_path}]({original_model_url}) のライセンスおよび使用条件を遵守してください。\n")
+        f.write("\n")
+        f.write("## 貢献\n")
+        f.write("問題や改善点があれば、Issueを作成するかプルリクエストを送ってください。\n")
     print(f"README.mdを作成しました：{readme_path}")
 
 def upload_to_huggingface(output_dir, model_name_or_path):
