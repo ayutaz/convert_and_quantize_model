@@ -41,7 +41,7 @@ jobs:
 
       - name: Dockerイメージのビルド
         run: |
-          docker build --build-arg INSTALL_CUDA=false -t model-processor .
+          docker build -t model-processor .
 
       - name: モデルの処理（Dockerコンテナ内で実行）
         if: steps.get_issues.outputs.issues != '[]'

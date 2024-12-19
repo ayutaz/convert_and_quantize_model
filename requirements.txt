@@ -30,7 +30,7 @@ pyyaml==6.0.2
 regex==2024.11.6
 requests==2.32.3
 safetensors==0.4.5
-sympy==1.13.3
+sympy==1.13.1
 tokenizers==0.21.0
 torch==2.5.1
 tqdm==4.67.1
