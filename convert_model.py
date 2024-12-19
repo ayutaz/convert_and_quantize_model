@@ -5,18 +5,21 @@ from pathlib import Path
 from transformers import AutoModel, AutoTokenizer
 import onnx
 import onnxruntime
-from onnxruntime.quantization import quantize_dynamic, QuantType
+from onnxruntime.transformers import optimizer
+from onnxruntime.transformers.fusion_options import FusionOptions
 import shutil
-from huggingface_hub import HfApi, Repository
+from huggingface_hub import HfApi, Repository, HfFolder
 
 def convert_model(model_name_or_path, output_dir, opset_version=14):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"使用デバイス: {device}")
 
     # モデルとトークナイザーのロード
-    model = AutoModel.from_pretrained(model_name_or_path, force_download=True).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, force_download=True)
+    model = AutoModel.from_pretrained(model_name_or_path).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     model.eval()
+    model_config = model.config
+    model_type = model_config.model_type  # モデルタイプを取得
 
     # ダミー入力の作成
     sample_text = "Hello, world!"
@@ -25,10 +28,12 @@ def convert_model(model_name_or_path, output_dir, opset_version=14):
     input_names = list(inputs.keys())
     output_names = ['output']
 
-    # ONNXへのエクスポートの準備
+    # 出力ディレクトリの準備
     output_dir = Path(output_dir)
-    onnx_models_dir = output_dir / "onnx"
+    onnx_models_dir = output_dir / "onnx_models"
+    ort_models_dir = output_dir / "ort_models"
     onnx_models_dir.mkdir(parents=True, exist_ok=True)
+    ort_models_dir.mkdir(parents=True, exist_ok=True)
 
     model_onnx_path = onnx_models_dir / "model.onnx"
 
@@ -46,22 +51,50 @@ def convert_model(model_name_or_path, output_dir, opset_version=14):
 
     print(f"モデルをONNX形式に変換しました：{model_onnx_path}")
 
+    # モデルの最適化
+    optimized_model_path = onnx_models_dir / "model_opt.onnx"
+    optimize_model(model_onnx_path, optimized_model_path, opset_version, model_type, model_config)
+
     # 量子化処理の実行
-    quantize_model(model_onnx_path, onnx_models_dir)
+    quantize_model(optimized_model_path, onnx_models_dir, ort_models_dir)
 
     # READMEファイルの作成
     create_readme(output_dir, model_name_or_path)
 
-def quantize_model(model_onnx_path, onnx_models_dir):
+def optimize_model(onnx_model_path, optimized_model_path, opset_version, model_type, model_config):
+    print("モデルの最適化を行っています...")
+
+    # 最適化オプションの設定
+    optimization_options = FusionOptions(model_type)
+
+    # モデルの設定から num_heads と hidden_size を取得
+    # 取得できない場合は 0 を設定
+    num_heads = getattr(model_config, 'num_attention_heads', 0)
+    hidden_size = getattr(model_config, 'hidden_size', 0)
+
+    # optimizer.optimize_model 関数の呼び出し
+    opt_model = optimizer.optimize_model(
+        input=str(onnx_model_path),
+        model_type=model_type,
+        num_heads=num_heads,
+        hidden_size=hidden_size,
+        optimization_options=optimization_options,
+        use_gpu=False,
+        opt_level=1,
+        only_onnxruntime=True,
+    )
+    opt_model.save_model_to_file(str(optimized_model_path))
+    print(f"モデルを最適化しました：{optimized_model_path}")
+
+def quantize_model(optimized_model_path, onnx_models_dir, ort_models_dir):
     print("量子化のための準備をしています...")
 
     # FP16量子化
-    fp16_model_path = onnx_models_dir / "model_fp16.onnx"
     from onnxconverter_common import float16
-    import onnx
+    fp16_model_path = onnx_models_dir / "model_fp16.onnx"
 
     # モデルのロード
-    model_fp32 = onnx.load_model(str(model_onnx_path))
+    model_fp32 = onnx.load_model(str(optimized_model_path))
 
     # FP16への変換
     model_fp16 = float16.convert_float_to_float16(model_fp32)
@@ -72,8 +105,9 @@ def quantize_model(model_onnx_path, onnx_models_dir):
 
     # INT8量子化
     int8_model_path = onnx_models_dir / "model_int8.onnx"
+    from onnxruntime.quantization import quantize_dynamic, QuantType
     quantize_dynamic(
-        model_input=str(model_onnx_path),
+        model_input=str(optimized_model_path),
         model_output=str(int8_model_path),
         weight_type=QuantType.QInt8
     )
@@ -82,43 +116,110 @@ def quantize_model(model_onnx_path, onnx_models_dir):
     # UINT8量子化
     uint8_model_path = onnx_models_dir / "model_uint8.onnx"
     quantize_dynamic(
-        model_input=str(model_onnx_path),
+        model_input=str(optimized_model_path),
         model_output=str(uint8_model_path),
         weight_type=QuantType.QUInt8
     )
     print(f"UINT8量子化を完了しました：{uint8_model_path}")
 
+    # ORT形式への変換
+    print("ORT形式への変換を行います...")
+
+    # 元の最適化モデルのORT変換
+    model_ort_path = ort_models_dir / "model.ort"
+    convert_to_ort(optimized_model_path, model_ort_path)
+
+    # FP16モデルのORT変換
+    model_fp16_ort_path = ort_models_dir / "model_fp16.ort"
+    convert_to_ort(fp16_model_path, model_fp16_ort_path)
+
+    # INT8モデルのORT変換
+    model_int8_ort_path = ort_models_dir / "model_int8.ort"
+    convert_to_ort(int8_model_path, model_int8_ort_path)
+
+    # UINT8モデルのORT変換
+    model_uint8_ort_path = ort_models_dir / "model_uint8.ort"
+    convert_to_ort(uint8_model_path, model_uint8_ort_path)
+
+def convert_to_ort(model_onnx_path, ort_model_path):
+    import onnxruntime as ort
+    # セッションオプションの作成
+    sess_options = ort.SessionOptions()
+    # 最適化レベルの設定（ORT_ENABLE_EXTENDEDに変更）
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+    # 最適化されたモデルの保存先を指定
+    sess_options.optimized_model_filepath = str(ort_model_path)
+    # セッションを作成し、モデルを最適化して保存
+    _ = ort.InferenceSession(str(model_onnx_path), sess_options)
+    print(f"ORT形式への変換を完了しました：{ort_model_path}")
+
 def create_readme(output_dir, model_name_or_path):
     readme_path = Path(output_dir) / "README.md"
     with open(readme_path, "w", encoding="utf-8") as f:
-        f.write(f"# {model_name_or_path}のONNXモデルと量子化モデル\n")
+        # READMEのヘッダー部分を追加
+        f.write("---\n")
+        f.write("license: apache-2.0\n")
+        f.write("- ja\n")
+        f.write("tags:\n")
+        f.write("- onnx\n")
+        f.write("- ort\n")
+        f.write("---\n\n")
+        f.write(f"# {model_name_or_path}のONNXおよびORTモデルと量子化モデル\n")
         f.write("\n")
-        f.write("このフォルダには、以下のONNXモデルが含まれています。\n")
-        f.write("- onnx/model.onnx: 元のONNXモデル\n")
-        f.write("- onnx/model_fp16.onnx: FP16による量子化モデル\n")
-        f.write("- onnx/model_int8.onnx: INT8による量子化モデル\n")
-        f.write("- onnx/model_uint8.onnx: UINT8による量子化モデル\n")
+        f.write("このフォルダには、以下のモデルが含まれています。\n")
+        f.write("\n")
+        f.write("## ONNXモデル\n")
+        f.write(f"- {os.path.join('onnx_models', 'model.onnx')}: 元のONNXモデル\n")
+        f.write(f"- {os.path.join('onnx_models', 'model_opt.onnx')}: 最適化されたONNXモデル\n")
+        f.write(f"- {os.path.join('onnx_models', 'model_fp16.onnx')}: FP16による量子化モデル\n")
+        f.write(f"- {os.path.join('onnx_models', 'model_int8.onnx')}: INT8による量子化モデル\n")
+        f.write(f"- {os.path.join('onnx_models', 'model_uint8.onnx')}: UINT8による量子化モデル\n")
+        f.write("\n")
+        f.write("## ORTモデル\n")
+        f.write(f"- {os.path.join('ort_models', 'model.ort')}: 最適化されたONNXモデルを使用したORTモデル\n")
+        f.write(f"- {os.path.join('ort_models', 'model_fp16.ort')}: FP16量子化モデルを使用したORTモデル\n")
+        f.write(f"- {os.path.join('ort_models', 'model_int8.ort')}: INT8量子化モデルを使用したORTモデル\n")
+        f.write(f"- {os.path.join('ort_models', 'model_uint8.ort')}: UINT8量子化モデルを使用したORTモデル\n")
     print(f"README.mdを作成しました：{readme_path}")
 
-def upload_to_huggingface(output_dir, model_name_or_path, hf_token):
-    api = HfApi()
-    user = api.whoami(token=hf_token)["name"]
-    repo_name = f"{user}/{model_name_or_path.replace('/', '_')}_onnx"
-    repo_url = api.create_repo(name=repo_name, token=hf_token, exist_ok=True)
-    print(f"モデルをアップロードしています：{repo_url}")
+def upload_to_huggingface(output_dir, model_name_or_path):
+    # 必要なモジュールをインポート
+    from huggingface_hub import create_repo, upload_folder, whoami, get_full_repo_name
+    from huggingface_hub.utils import HfHubHTTPError
+    
+    # ログイン済みのトークンを取得
+    token = HfFolder.get_token()
+    if token is None:
+        print("Hugging Faceのトークンが見つかりません。'huggingface-cli login'でログインしてください。")
+        return
+    
+    # リポジトリ名の作成
+    repo_name = f"{model_name_or_path.replace('/', '_')}_onnx_ort"
+    full_repo_name = f"ort-community/{repo_name}"
+    
+    # リポジトリを作成（既存でない場合）
+    try:
+        create_repo(repo_id=full_repo_name, exist_ok=True, token=token)
+    except HfHubHTTPError as e:
+        print(f"リポジトリの作成に失敗しました: {e}")
+        return
 
-    repo = Repository(local_dir=output_dir, clone_from=repo_url, use_auth_token=hf_token)
-    repo.git_add()
-    repo.git_commit("Add ONNX model and quantized models")
-    repo.git_push()
-    print(f"モデルのアップロードが完了しました：{repo_url}")
+    # モデルをアップロード
+    print(f"モデルをアップロードしています：https://huggingface.co/{full_repo_name}")
+    upload_folder(
+        folder_path=str(output_dir),
+        path_in_repo="",
+        repo_id=full_repo_name,
+        token=token,
+        commit_message="Add ONNX and ORT models with quantization",
+    )
+    print(f"モデルのアップロードが完了しました：https://huggingface.co/{full_repo_name}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Hugging FaceモデルをONNX形式に変換し、量子化するスクリプト')
+    parser = argparse.ArgumentParser(description='Hugging FaceモデルをONNXおよびORT形式に変換し、量子化してアップロードするスクリプト')
     parser.add_argument('--model', type=str, required=True, help='Hugging Face上のモデル名を指定')
     parser.add_argument('--output_dir', type=str, default=None, help='出力ディレクトリ名（デフォルトはモデル名）')
     parser.add_argument('--opset', type=int, default=14, help='ONNX opset version（デフォルトは14）')
-    parser.add_argument('--hf_token', type=str, default='', help='Hugging Faceのアクセストークン。モデルをアップロードする場合に必要です')
     args = parser.parse_args()
 
     # 出力ディレクトリ名の設定
@@ -129,9 +230,8 @@ def main():
     # モデルの変換と量子化の実行
     convert_model(args.model, args.output_dir, args.opset)
 
-    # モデルのアップロード（アクセストークンが指定された場合）
-    if args.hf_token:
-        upload_to_huggingface(args.output_dir, args.model, args.hf_token)
+    # モデルのアップロード
+    upload_to_huggingface(args.output_dir, args.model)
 
 if __name__ == '__main__':
     main()
