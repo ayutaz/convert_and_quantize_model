@@ -221,19 +221,21 @@ def create_readme(output_dir, model_name_or_path):
 
 def upload_to_huggingface(output_dir, model_name_or_path):
     # 必要なモジュールをインポート
-    from huggingface_hub import create_repo, upload_folder, whoami, get_full_repo_name
+    from huggingface_hub import create_repo, upload_folder, whoami,get_full_repo_name
+    import urllib.parse
     from huggingface_hub.utils import HfHubHTTPError
-    
+
     # ログイン済みのトークンを取得
     token = HfFolder.get_token()
     if token is None:
         print("Hugging Faceのトークンが見つかりません。'huggingface-cli login'でログインしてください。")
         return
-    
+
     # リポジトリ名の作成
-    repo_name = f"{model_name_or_path.replace('/', '_')}_onnx_ort"
+    safe_model_name = model_name_or_path.replace('/', '_')  # スラッシュをアンダースコアに置換
+    repo_name = f"{safe_model_name}_onnx_ort"
     full_repo_name = f"ort-community/{repo_name}"
-    
+
     # リポジトリを作成（既存でない場合）
     try:
         create_repo(repo_id=full_repo_name, exist_ok=True, token=token)

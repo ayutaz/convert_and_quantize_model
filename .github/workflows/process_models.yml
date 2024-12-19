@@ -1,0 +1,63 @@
+name: Process Models
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 毎時0分に実行（必要に応じて変更してください）
+  workflow_dispatch:  # 手動実行も可能にする
+
+permissions:
+  issues: write           # Issueの書き込み権限
+  contents: write         # リポジトリコンテンツへの書き込み権限
+  pull-requests: write    # （必要に応じて追加）
+
+jobs:
+  process_models:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 依存関係のインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 古い順に処理すべきIssueを取得
+        id: get_issues
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: '',  // ラベルが付いていないIssueのみ取得
+              per_page: 100,
+            });
+            // Pull Requestを除外し、タイトルにモデル名が記載されているIssueをフィルタリング
+            const modelIssues = issues.filter(issue => issue.title && !issue.pull_request);
+            core.setOutput('issues', JSON.stringify(modelIssues));
+              
+      - name: Issuesのリストを表示
+        run: |
+          echo "Issues to process: ${{ steps.get_issues.outputs.issues }}"
+
+      - name: モデルの処理
+        if: steps.get_issues.outputs.issues != '[]'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.actor }}
+        run: |
+          python process_issues.py '${{ steps.get_issues.outputs.issues }}' '${{ github.repository }}' '${{ github.run_id }}'
+
+      - name: 完了メッセージ
+        if: steps.get_issues.outputs.issues == '[]'
+        run: echo "処理すべきIssueはありません。"
