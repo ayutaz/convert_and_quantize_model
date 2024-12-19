@@ -43,7 +43,11 @@ jobs:
         run: |
           docker build -t model-processor .
 
-      - name: モデルの処理（Dockerコンテナ内で実行）
+      - name: Issuesのリストをファイルに保存
+        run: |
+          echo '${{ steps.get_issues.outputs.issues }}' > issues.json
+
+      - name: モデルの処理（Dockerコンテナ内で実行)
         if: steps.get_issues.outputs.issues != '[]'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -53,13 +57,14 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           docker run --rm \
-            -e HF_TOKEN \
-            -e GITHUB_TOKEN \
-            -e USERNAME \
-            -e REPOSITORY \
-            -e RUN_ID \
-            model-processor \
-            python process_issues.py "${{ steps.get_issues.outputs.issues }}" "$REPOSITORY" "$RUN_ID"
+          -v ${{ github.workspace }}/issues.json:/app/issues.json \
+          -e HF_TOKEN \
+          -e GITHUB_TOKEN \
+          -e USERNAME \
+          -e REPOSITORY \
+          -e RUN_ID \
+          model-processor \
+          python process_issues.py "/app/issues.json" "$REPOSITORY" "$RUN_ID"
 
       - name: 完了メッセージ
         if: steps.get_issues.outputs.issues == '[]'

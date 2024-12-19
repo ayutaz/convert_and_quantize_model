@@ -5,7 +5,9 @@ import re
 import os
 import urllib.parse
 
-def main(issues_json, repository, run_id):
+def main(issues_json_path, repository, run_id):
+    with open(issues_json_path, 'r', encoding='utf-8') as f:
+        issues_json = f.read()
     issues = json.loads(issues_json)
     username = os.getenv('USERNAME')  # ユーザー名を環境変数から取得
     for issue in issues:
@@ -73,9 +75,9 @@ def main(issues_json, repository, run_id):
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: python process_issues.py '<issues_json>' '<repository>' '<run_id>'")
+        print("Usage: python process_issues.py '<issues_json_path>' '<repository>' '<run_id>'")
         sys.exit(1)
-    issues_json = sys.argv[1]
+    issues_json_path = sys.argv[1]
     repository = sys.argv[2]
     run_id = sys.argv[3]
-    main(issues_json, repository, run_id)
+    main(issues_json_path, repository, run_id)
