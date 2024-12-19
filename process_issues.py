@@ -1,20 +1,29 @@
 import json
 import subprocess
 import sys
-import re
 import os
 import urllib.parse
 
 def main(issues_json_path, repository, run_id):
-    # GitHub CLI を認証
+    # 環境変数から GITHUB_TOKEN を取得
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
         print("GITHUB_TOKEN が設定されていません。")
         sys.exit(1)
 
-    # gh CLI を使用して認証
-    login_command = f'echo "{github_token}" | gh auth login --with-token'
-    subprocess.run(login_command, shell=True, check=True)
+    # gh CLI の認証ステータスを確認（任意）
+    try:
+        subprocess.run(["gh", "auth", "status"], check=True)
+    except subprocess.CalledProcessError as e:
+        print("GitHub CLI の認証に失敗しました。")
+        print(e)
+        sys.exit(1)
+
+    # 設定されているユーザー名を確認
+    username = os.getenv('USERNAME')
+    if not username:
+        print("USERNAME が設定されていません。")
+        sys.exit(1)
 
     # Issues の読み込み
     with open(issues_json_path, 'r', encoding='utf-8') as f:

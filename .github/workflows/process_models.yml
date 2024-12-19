@@ -16,11 +16,11 @@ jobs:
 
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.2.2
 
       - name: 古い順に処理すべきIssueを取得
         id: get_issues
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
