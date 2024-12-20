@@ -111,13 +111,19 @@ def main(repository, run_id):
         print("処理すべきモデル変換の Issue はありません。")
 
 def check_for_duplicate_issue(g, title, current_issue_number, repository):
-    query = f'"{title}" in:title is:closed repo:{repository}'
+    # タイトルに含まれる単語で検索範囲を狭める（不要な場合があるため、場合によっては削除してもよい）
+    keywords = title.strip().split('/')
+    query = f'repo:{repository} is:issue is:closed'
+    for keyword in keywords:
+        query += f' {keyword} in:title'
+
     issues = g.search_issues(query)
     for issue in issues:
         issue_number = issue.number
         issue_labels = [label.name for label in issue.labels]
-        # "Completed" ラベルが付いている Issue を対象とする
-        if "Completed" in issue_labels and issue_number != current_issue_number:
+        issue_title = issue.title.strip()
+        # タイトルが完全一致し、"Completed" ラベルが付いている Issue を対象とする
+        if issue_title == title.strip() and "Completed" in issue_labels and issue_number != current_issue_number:
             return issue_number  # 重複する過去の Issue の番号を返す
 
     return None  # 重複する Issue が見つからなかった
