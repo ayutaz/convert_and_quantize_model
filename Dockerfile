@@ -25,14 +25,15 @@ WORKDIR /app
 # 必要なファイルのみをコピー
 COPY requirements.txt ./
 COPY process_issues.py ./
-# 他に必要なファイルがあれば、ここで個別にコピーします
-# 例: COPY src/ ./src/
 
 # ライブラリのインストール
 RUN pip install --no-cache-dir --upgrade pip
 
-# PyTorch のインストール（CPU 版の軽量ホイールを指定）
-RUN pip install --no-cache-dir https://download.pytorch.org/whl/cpu/torch-2.1.0%2Bcpu-cp311-cp311-linux_x86_64.whl
+# PyTorch のインストール（ホイールファイルをダウンロードしてインストール）
+RUN curl -L -o torch-2.5.1+cpu.cxx11.abi-cp311-cp311-linux_x86_64.whl \
+    "https://download.pytorch.org/whl/cpu-cxx11-abi/torch-2.5.1%2Bcpu.cxx11.abi-cp311-cp311-linux_x86_64.whl" && \
+    pip install --no-cache-dir torch-2.5.1+cpu.cxx11.abi-cp311-cp311-linux_x86_64.whl && \
+    rm torch-2.5.1+cpu.cxx11.abi-cp311-cp311-linux_x86_64.whl
 
 # 他の依存関係をインストール
 RUN pip install --no-cache-dir -r requirements.txt
@@ -68,8 +69,6 @@ COPY --from=builder /usr/local /usr/local
 
 # 必要なファイルのみをコピー
 COPY process_issues.py ./
-# 他に必要なファイルがあれば、ここで個別にコピーします
-# 例: COPY src/ ./src/
 
 # キャッシュの削除（念のため）
 RUN rm -rf /root/.cache/pip \
