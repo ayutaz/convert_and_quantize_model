@@ -31,12 +31,14 @@ def main(issues_json_path, repository, run_id):
         # タイトルからモデル名を抽出
         # 先頭の「xxx/」を削除してモデル名を取得
         if '/' in title:
-            model_name = title.split('/', 1)[1].strip()
+            model_name = title.strip()
+            repo_model_name = title.split('/', 1)[1].strip()
         else:
             model_name = title.strip()
+            repo_model_name = model_name
 
         # モデル名を安全なリポジトリ名に変換
-        safe_model_name = model_name.replace('/', '_')  # スラッシュをアンダースコアに置換
+        safe_model_name = repo_model_name.replace('/', '_')  # スラッシュをアンダースコアに置換
 
         # Issueに「In Progress」ラベルを追加
         add_label_cmd = f'gh issue edit {issue_number} --add-label "In Progress"'

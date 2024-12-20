@@ -232,7 +232,12 @@ def upload_to_huggingface(output_dir, model_name_or_path):
         return
 
     # リポジトリ名の作成
-    safe_model_name = model_name_or_path.replace('/', '_')  # スラッシュをアンダースコアに置換
+    if '/' in model_name_or_path:
+        repo_model_name = model_name_or_path.split('/', 1)[1]
+    else:
+        repo_model_name = model_name_or_path
+
+    safe_model_name = repo_model_name.replace('/', '_')  # スラッシュをアンダースコアに置換
     repo_name = f"{safe_model_name}_onnx_ort"
     full_repo_name = f"ort-community/{repo_name}"
 
@@ -263,7 +268,10 @@ def main():
 
     # 出力ディレクトリ名の設定
     if args.output_dir is None:
-        sanitized_model_name = args.model.replace('/', '_')
+        if '/' in args.model:
+            sanitized_model_name = args.model.split('/', 1)[1].replace('/', '_')
+        else:
+            sanitized_model_name = args.model.replace('/', '_')
         args.output_dir = sanitized_model_name
 
     # モデルの変換と量子化の実行
