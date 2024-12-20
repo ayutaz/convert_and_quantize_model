@@ -161,7 +161,8 @@ def create_readme(output_dir, model_name_or_path):
     # Get model info
     try:
         model_info = api.model_info(repo_id=model_name_or_path)
-        license_info = model_info.license if model_info.license else "apache-2.0"
+        # Get license from cardData
+        license_info = model_info.cardData.get('license', 'apache-2.0')
     except Exception as e:
         print(f"Failed to get model info. Using default license. Error: {e}")
         license_info = "apache-2.0"
