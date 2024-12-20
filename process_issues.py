@@ -6,6 +6,14 @@ import urllib.parse
 import re
 
 def main(issues_json_path, repository, run_id):
+    # キャッシュのクリーンアップ
+    cache_dir = os.getenv('HF_HOME')
+    if not cache_dir:
+        cache_dir = os.path.expanduser('~/.cache/huggingface')
+    if os.path.exists(cache_dir):
+        print(f"Deleting cache directory before processing issues: {cache_dir}")
+        shutil.rmtree(cache_dir)
+
     # 環境変数から GITHUB_TOKEN を取得
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
