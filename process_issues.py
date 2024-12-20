@@ -1,10 +1,9 @@
 import json
-import subprocess
 import sys
 import os
 import urllib.parse
 import re
-
+from github import Github
 
 def main(issues_json_path, repository, run_id):
     # 環境変数から GITHUB_TOKEN を取得
@@ -13,13 +12,11 @@ def main(issues_json_path, repository, run_id):
         print("GITHUB_TOKEN が設定されていません。")
         sys.exit(1)
 
-    # gh CLI の認証ステータスを確認（任意）
-    try:
-        subprocess.run(["gh", "auth", "status"], check=True)
-    except subprocess.CalledProcessError as e:
-        print("GitHub CLI の認証に失敗しました。")
-        print(e)
-        sys.exit(1)
+    # GitHub API クライアントを初期化
+    g = Github(github_token)
+
+    # リポジトリの取得
+    repo = g.get_repo(repository)
 
     # Issues の読み込み
     with open(issues_json_path, 'r', encoding='utf-8') as f:
@@ -28,15 +25,15 @@ def main(issues_json_path, repository, run_id):
 
     found_issue_to_process = False  # 処理した Issue があるかどうかのフラグ
 
-    for issue in issues:
-        title = issue['title']
-        issue_number = issue['number']
-        issue_labels = [label['name'] for label in issue.get('labels', [])]
+    for issue_data in issues:
+        title = issue_data['title']
+        issue_number = issue_data['number']
+        issue_labels = [label['name'] for label in issue_data.get('labels', [])]
+        issue = repo.get_issue(number=issue_number)
 
         print(f"Processing Issue #{issue_number}: {title}")
 
         # タイトルがモデル変換用のフォーマットに合致するかチェック
-        # 英数字、アンダースコア、ハイフン、およびスラッシュのみを含むタイトルをモデル変換用とみなす
         if re.match(r'^[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+$', title.strip()):
             print(f"Issue #{issue_number} is a model conversion request.")
         else:
@@ -49,11 +46,11 @@ def main(issues_json_path, repository, run_id):
             continue  # 次の Issue をチェック
 
         # 重複している Issue がないかチェック
-        duplicate_issue_number = check_for_duplicate_issue(title, issue_number, repository)
+        duplicate_issue_number = check_for_duplicate_issue(g, title, issue_number, repository)
         if duplicate_issue_number:
             print(f"Issue #{issue_number} is a duplicate of Issue #{duplicate_issue_number}.")
             # "Duplicate" ラベルを追加し、コメントを投稿してクローズ
-            add_duplicate_label_and_comment(issue_number, duplicate_issue_number)
+            add_duplicate_label_and_comment(issue, duplicate_issue_number)
             continue  # 次の Issue をチェック
 
         # ここからモデル変換処理を開始
@@ -68,8 +65,7 @@ def main(issues_json_path, repository, run_id):
         safe_model_name = repo_model_name.replace('/', '_')  # スラッシュをアンダースコアに置換
 
         # Issue に「In Progress」ラベルを追加
-        add_label_cmd = f'gh issue edit {issue_number} --add-label "In Progress"'
-        subprocess.run(add_label_cmd, shell=True)
+        issue.add_to_labels("In Progress")
 
         try:
             # モデルの変換を実行
@@ -86,15 +82,9 @@ def main(issues_json_path, repository, run_id):
 
             # Issue にコメントと「Failed」ラベルを追加
             comment_body = f"モデル **{model_name}** の変換中にエラーが発生しました。\n\nエラーログ:\n```\n{error_log}\n```\n\n[ジョブの詳細はこちら]({job_url})"
-
-            # コメントをファイルに書き出す
-            with open('comment_body.txt', 'w', encoding='utf-8') as f:
-                f.write(comment_body)
-
-            comment_cmd = f'gh issue comment {issue_number} --body-file "comment_body.txt"'
-            subprocess.run(comment_cmd, shell=True)
-            label_cmd = f'gh issue edit {issue_number} --remove-label "In Progress" --add-label "Failed"'
-            subprocess.run(label_cmd, shell=True)
+            issue.create_comment(comment_body)
+            issue.remove_from_labels("In Progress")
+            issue.add_to_labels("Failed")
 
             found_issue_to_process = True  # 処理した Issue がある
             break  # 処理を終えてループを抜ける
@@ -106,22 +96,16 @@ def main(issues_json_path, repository, run_id):
         uploaded_model_url = f"https://huggingface.co/ort-community/{encoded_repo_name}"
 
         comment_body = f"モデル **{model_name}** の処理が完了しました。\n\nアップロード先: [{uploaded_model_url}]({uploaded_model_url})"
+        issue.create_comment(comment_body)
 
-        # コメントをファイルに書き出す
-        with open('comment_body.txt', 'w', encoding='utf-8') as f:
-            f.write(comment_body)
-
-        # コメントを投稿
-        comment_cmd = f'gh issue comment {issue_number} --body-file "comment_body.txt"'
-        subprocess.run(comment_cmd, shell=True)
-
-        # "In Progress" と "Failed" ラベルを削除し、"Completed" ラベルを追加
-        label_cmd = f'gh issue edit {issue_number} --remove-label "In Progress,Failed" --add-label "Completed"'
-        subprocess.run(label_cmd, shell=True)
+        # ラベルの更新
+        issue.remove_from_labels("In Progress")
+        if "Failed" in issue_labels:
+            issue.remove_from_labels("Failed")
+        issue.add_to_labels("Completed")
 
         # Issue をクローズ
-        close_cmd = f'gh issue close {issue_number}'
-        subprocess.run(close_cmd, shell=True)
+        issue.edit(state="closed")
 
         found_issue_to_process = True  # 処理した Issue がある
         break  # 処理を終えてループを抜ける
@@ -129,45 +113,26 @@ def main(issues_json_path, repository, run_id):
     if not found_issue_to_process:
         print("処理すべきモデル変換の Issue はありません。")
 
-
-def check_for_duplicate_issue(title, current_issue_number, repository):
-    # 同じタイトルを持つクローズされた Issue を検索
-    search_cmd = f'gh issue list --search "{title} in:title is:closed repo:{repository}" --json number,title,labels'
-    result = subprocess.run(search_cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Failed to search for duplicate issues. Error: {result.stderr}")
-        return None
-
-    try:
-        issues = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        print("Failed to parse JSON output from gh issue list command.")
-        return None
-
+def check_for_duplicate_issue(g, title, current_issue_number, repository):
+    query = f'"{title}" in:title is:closed repo:{repository}'
+    issues = g.search_issues(query)
     for issue in issues:
-        issue_number = issue['number']
-        issue_labels = [label['name'] for label in issue.get('labels', [])]
+        issue_number = issue.number
+        issue_labels = [label.name for label in issue.labels]
         # "Completed" ラベルが付いている Issue を対象とする
         if "Completed" in issue_labels and issue_number != current_issue_number:
             return issue_number  # 重複する過去の Issue の番号を返す
 
     return None  # 重複する Issue が見つからなかった
 
-
-def add_duplicate_label_and_comment(issue_number, duplicate_issue_number):
+def add_duplicate_label_and_comment(issue, duplicate_issue_number):
     # "Duplicate" ラベルを追加
-    label_cmd = f'gh issue edit {issue_number} --add-label "Duplicate"'
-    subprocess.run(label_cmd, shell=True)
+    issue.add_to_labels("Duplicate")
     # コメントを投稿
     comment_body = f"この Issue は過去の Issue #{duplicate_issue_number} と重複しています。そちらをご参照ください。"
-    with open('comment_body.txt', 'w', encoding='utf-8') as f:
-        f.write(comment_body)
-    comment_cmd = f'gh issue comment {issue_number} --body-file "comment_body.txt"'
-    subprocess.run(comment_cmd, shell=True)
+    issue.create_comment(comment_body)
     # Issue をクローズ
-    close_cmd = f'gh issue close {issue_number}'
-    subprocess.run(close_cmd, shell=True)
-
+    issue.edit(state="closed")
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:

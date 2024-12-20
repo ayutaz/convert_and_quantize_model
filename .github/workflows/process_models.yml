@@ -18,23 +18,6 @@ jobs:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v4.2.2
 
-      - name: 古い順に処理すべきIssueを取得
-        id: get_issues
-        uses: actions/github-script@v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: '',  // ラベルが付いていないIssueのみ取得
-              per_page: 100,
-            });
-            // Pull Requestを除外し、タイトルにモデル名が記載されているIssueをフィルタリング
-            const modelIssues = issues.filter(issue => issue.title && !issue.pull_request);
-            core.setOutput('issues', JSON.stringify(modelIssues));
-
       # === Docker Buildx のセットアップ ===
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3.2.0
@@ -74,29 +57,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Issuesのリストをファイルに保存
-        run: |
-          echo '${{ steps.get_issues.outputs.issues }}' > issues.json
-
       - name: モデルの処理（Dockerコンテナ内で実行）
-        if: steps.get_issues.outputs.issues != '[]'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          USERNAME: ort-community
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}/issues.json:/app/issues.json \
             -e HF_TOKEN \
             -e GITHUB_TOKEN \
-            -e USERNAME \
             -e REPOSITORY \
             -e RUN_ID \
             model-processor \
-            python process_issues.py "/app/issues.json" "$REPOSITORY" "$RUN_ID"
+            python process_issues.py "$REPOSITORY" "$RUN_ID"
 
       - name: 完了メッセージ
-        if: steps.get_issues.outputs.issues == '[]'
-        run: echo "処理すべきIssueはありません。"
+        run: echo "モデルの処理が完了しました。"
