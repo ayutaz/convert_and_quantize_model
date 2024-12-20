@@ -25,6 +25,8 @@ WORKDIR /app
 # 必要なファイルのみをコピー
 COPY requirements.txt ./
 COPY process_issues.py ./
+COPY convert_model.py ./
+COPY readme_generator.py ./
 
 # ライブラリのインストール
 RUN pip install --no-cache-dir --upgrade pip
@@ -69,6 +71,8 @@ COPY --from=builder /usr/local /usr/local
 
 # 必要なファイルのみをコピー
 COPY process_issues.py ./
+COPY convert_model.py ./
+COPY readme_generator.py ./
 
 # キャッシュの削除（念のため）
 RUN rm -rf /root/.cache/pip \
