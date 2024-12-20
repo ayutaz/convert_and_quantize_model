@@ -45,7 +45,7 @@ def main(issues_json_path, repository, run_id):
         subprocess.run(add_label_cmd, shell=True)
 
         # モデルの変換を実行
-        cmd = f"python convert_model.py --model '{model_name}'"
+        cmd = f"python convert_model.py --model '{model_name} --upload'"
         print(f"Running command: {cmd}")
         process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if process.returncode != 0:
