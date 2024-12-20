@@ -5,15 +5,8 @@ import os
 import urllib.parse
 import re
 
-def main(issues_json_path, repository, run_id):
-    # キャッシュのクリーンアップ
-    cache_dir = os.getenv('HF_HOME')
-    if not cache_dir:
-        cache_dir = os.path.expanduser('~/.cache/huggingface')
-    if os.path.exists(cache_dir):
-        print(f"Deleting cache directory before processing issues: {cache_dir}")
-        shutil.rmtree(cache_dir)
 
+def main(issues_json_path, repository, run_id):
     # 環境変数から GITHUB_TOKEN を取得
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
@@ -76,14 +69,15 @@ def main(issues_json_path, repository, run_id):
         add_label_cmd = f'gh issue edit {issue_number} --add-label "In Progress"'
         subprocess.run(add_label_cmd, shell=True)
 
-        # モデルの変換を実行
-        cmd = f"python convert_model.py --model '{model_name}' --upload"
-        print(f"Running command: {cmd}")
-        process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if process.returncode != 0:
+        try:
+            # モデルの変換を実行
+            cmd = f"python convert_model.py --model '{model_name}' --upload"
+            print(f"Running command: {cmd}")
+            process = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError as e:
             print(f"Model conversion failed for {model_name}")
             # エラーログを取得
-            error_log = process.stderr
+            error_log = e.stderr if e.stderr else str(e)
 
             # ジョブのURLを生成
             job_url = f"https://github.com/{repository}/actions/runs/{run_id}"
@@ -127,6 +121,7 @@ def main(issues_json_path, repository, run_id):
     else:
         print("処理すべきIssueはありません。")
 
+
 def check_for_duplicate_issue(title, current_issue_number, repository):
     # 同じタイトルを持つクローズされた Issue を検索
     search_cmd = f'gh issue list --search "{title} in:title is:closed repo:{repository}" --json number,title,labels'
@@ -150,6 +145,7 @@ def check_for_duplicate_issue(title, current_issue_number, repository):
 
     return None  # 重複する Issue が見つからなかった
 
+
 def add_duplicate_label_and_comment(issue_number, duplicate_issue_number):
     # "Duplicate" ラベルを追加
     label_cmd = f'gh issue edit {issue_number} --add-label "Duplicate"'
@@ -163,6 +159,7 @@ def add_duplicate_label_and_comment(issue_number, duplicate_issue_number):
     # Issue をクローズ
     close_cmd = f'gh issue close {issue_number}'
     subprocess.run(close_cmd, shell=True)
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
