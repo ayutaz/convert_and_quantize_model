@@ -238,7 +238,7 @@ def upload_to_huggingface(output_dir, model_name_or_path):
         repo_model_name = model_name_or_path
 
     safe_model_name = repo_model_name.replace('/', '_')  # スラッシュをアンダースコアに置換
-    repo_name = f"{safe_model_name}_onnx_ort"
+    repo_name = f"{safe_model_name}-ONNX-ORT"
     full_repo_name = f"ort-community/{repo_name}"
 
     # リポジトリを作成（既存でない場合）
