@@ -19,10 +19,37 @@ class ReadmeGenerator:
         try:
             model_info = self.api.model_info(repo_id=self.model_name_or_path)
             # ライセンス情報の取得
-            license_info = model_info.cardData.get('license', 'apache-2.0')
+            license_info = model_info.cardData.get('license', None)
         except Exception as e:
             print(f"Failed to get model info. Using default license. Error: {e}")
-            license_info = "apache-2.0"
+            license_info = None
+
+        # 許可されたライセンスのリスト
+        accepted_licenses = [
+            "apache-2.0", "mit", "openrail", "bigscience-openrail-m",
+            "creativeml-openrail-m", "bigscience-bloom-rail-1.0", "bigcode-openrail-m",
+            "afl-3.0", "artistic-2.0", "bsl-1.0", "bsd", "bsd-2-clause", "bsd-3-clause",
+            "bsd-3-clause-clear", "c-uda", "cc", "cc0-1.0", "cc-by-2.0", "cc-by-2.5",
+            "cc-by-3.0", "cc-by-4.0", "cc-by-sa-3.0", "cc-by-sa-4.0", "cc-by-nc-2.0",
+            "cc-by-nc-3.0", "cc-by-nc-4.0", "cc-by-nd-4.0", "cc-by-nc-nd-3.0",
+            "cc-by-nc-nd-4.0", "cc-by-nc-sa-2.0", "cc-by-nc-sa-3.0", "cc-by-nc-sa-4.0",
+            "cdla-sharing-1.0", "cdla-permissive-1.0", "cdla-permissive-2.0", "wtfpl",
+            "ecl-2.0", "epl-1.0", "epl-2.0", "etalab-2.0", "eupl-1.1", "agpl-3.0",
+            "gfdl", "gpl", "gpl-2.0", "gpl-3.0", "lgpl", "lgpl-2.1", "lgpl-3.0",
+            "isc", "lppl-1.3c", "ms-pl", "apple-ascl", "mpl-2.0", "odc-by", "odbl",
+            "openrail++", "osl-3.0", "postgresql", "ofl-1.1", "ncsa", "unlicense",
+            "zlib", "pddl", "lgpl-lr", "deepfloyd-if-license", "llama2", "llama3",
+            "llama3.1", "llama3.2", "llama3.3", "gemma", "unknown", "other", "array"
+        ]
+
+        # ライセンス情報の検証とデフォルト設定
+        if not license_info or license_info == "":
+            print("ライセンス情報が見つからないため、デフォルトの 'unknown' を使用します。")
+            license_info = "unknown"
+        elif license_info not in accepted_licenses:
+            print(f"ライセンス '{license_info}' は受け入れられていません。デフォルトの 'unknown' を使用します。")
+            license_info = "unknown"
+
         return license_info
 
     def generate_sample_code(self, language='English'):
