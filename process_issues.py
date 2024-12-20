@@ -1,11 +1,11 @@
-import json
 import sys
 import os
 import urllib.parse
 import re
+import subprocess
 from github import Github
 
-def main(issues_json_path, repository, run_id):
+def main(repository, run_id):
     # 環境変数から GITHUB_TOKEN を取得
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
@@ -18,18 +18,15 @@ def main(issues_json_path, repository, run_id):
     # リポジトリの取得
     repo = g.get_repo(repository)
 
-    # Issues の読み込み
-    with open(issues_json_path, 'r', encoding='utf-8') as f:
-        issues_json = f.read()
-    issues = json.loads(issues_json)
+    # 処理すべき Issue の取得
+    issues = repo.get_issues(state='open', labels=[])
 
     found_issue_to_process = False  # 処理した Issue があるかどうかのフラグ
 
-    for issue_data in issues:
-        title = issue_data['title']
-        issue_number = issue_data['number']
-        issue_labels = [label['name'] for label in issue_data.get('labels', [])]
-        issue = repo.get_issue(number=issue_number)
+    for issue in issues:
+        title = issue.title
+        issue_number = issue.number
+        issue_labels = [label.name for label in issue.labels]
 
         print(f"Processing Issue #{issue_number}: {title}")
 
@@ -100,7 +97,7 @@ def main(issues_json_path, repository, run_id):
 
         # ラベルの更新
         issue.remove_from_labels("In Progress")
-        if "Failed" in issue_labels:
+        if "Failed" in [label.name for label in issue.labels]:
             issue.remove_from_labels("Failed")
         issue.add_to_labels("Completed")
 
@@ -135,10 +132,9 @@ def add_duplicate_label_and_comment(issue, duplicate_issue_number):
     issue.edit(state="closed")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: python process_issues.py '<issues_json_path>' '<repository>' '<run_id>'")
+    if len(sys.argv) < 3:
+        print("Usage: python process_issues.py '<repository>' '<run_id>'")
         sys.exit(1)
-    issues_json_path = sys.argv[1]
-    repository = sys.argv[2]
-    run_id = sys.argv[3]
-    main(issues_json_path, repository, run_id)
+    repository = sys.argv[1]
+    run_id = sys.argv[2]
+    main(repository, run_id)
