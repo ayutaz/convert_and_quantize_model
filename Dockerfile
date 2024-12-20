@@ -1,8 +1,9 @@
-# ベースイメージの指定（CPU版のPython 3.11）
-FROM python:3.11-slim
+# ビルドステージ
+FROM python:3.11-slim AS builder
 
-# 必須のパッケージをインストール
-RUN apt-get update && apt-get install -y \
+# 必要なビルドツールをインストール
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -21,17 +22,42 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
 # 作業ディレクトリを設定
 WORKDIR /app
 
-# リポジトリの内容をコピー
+# ソースコードをコピー
 COPY . /app
 
 # ライブラリのインストール
-RUN python -m pip install --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
 
-# PyTorchのインストール（CPU版）
-RUN pip install torch==2.1.0
+# PyTorchのインストール（CPU版の軽量ホイールを指定）
+RUN pip install --no-cache-dir https://download.pytorch.org/whl/cpu/torch-2.1.0%2Bcpu-cp311-cp311-linux_x86_64.whl
 
 # 他の依存関係をインストール
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ランタイムステージ
+FROM python:3.11-slim
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# ビルドステージから必要なファイルをコピー
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# ソースコードをコピー
+COPY . /app
+
+# 依存関係に必要なランタイムライブラリをインストール（必要に応じて）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # ランタイムに必要なパッケージをここに記載
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# キャッシュの削除（念のため）
+RUN rm -rf ~/.cache/pip
 
 # エントリーポイントを設定（オプション）
 CMD ["bash"]
