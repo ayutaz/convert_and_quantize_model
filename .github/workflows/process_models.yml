@@ -34,10 +34,6 @@ jobs:
             // Pull Requestを除外し、タイトルにモデル名が記載されているIssueをフィルタリング
             const modelIssues = issues.filter(issue => issue.title && !issue.pull_request);
             core.setOutput('issues', JSON.stringify(modelIssues));
-              
-      - name: Issuesのリストを表示
-        run: |
-          echo "Issues to process: ${{ steps.get_issues.outputs.issues }}"
 
       - name: Dockerイメージのビルド
         run: |
