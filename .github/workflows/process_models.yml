@@ -35,9 +35,44 @@ jobs:
             const modelIssues = issues.filter(issue => issue.title && !issue.pull_request);
             core.setOutput('issues', JSON.stringify(modelIssues));
 
+      # === Docker Buildx のセットアップ ===
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.2.0
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3.8.0
+
+      # === Docker キャッシュの復元 ===
+      - name: キャッシュの復元
+        id: cache-docker
+        uses: actions/cache@v4.2.0
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # === Docker イメージのビルド ===
       - name: Dockerイメージのビルド
-        run: |
-          docker build -t model-processor .
+        uses: docker/build-push-action@v6.10.0
+        with:
+          context: .
+          file: ./Dockerfile
+          tags: model-processor:latest
+          load: true  # ローカルにイメージをロード
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      # === Docker キャッシュの保存 ===
+      - name: キャッシュの保存
+        if: always()
+        uses: actions/cache@v4.2.0
+        with:
+          path: /tmp/.buildx-cache-new
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Issuesのリストをファイルに保存
         run: |
