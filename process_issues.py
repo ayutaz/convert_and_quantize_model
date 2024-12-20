@@ -25,8 +25,10 @@ def main(issues_json_path, repository, run_id):
     with open(issues_json_path, 'r', encoding='utf-8') as f:
         issues_json = f.read()
     issues = json.loads(issues_json)
-    if issues:
-        issue = issues[0]
+
+    found_issue_to_process = False  # 処理した Issue があるかどうかのフラグ
+
+    for issue in issues:
         title = issue['title']
         issue_number = issue['number']
         issue_labels = [label['name'] for label in issue.get('labels', [])]
@@ -39,12 +41,12 @@ def main(issues_json_path, repository, run_id):
             print(f"Issue #{issue_number} is a model conversion request.")
         else:
             print(f"Issue #{issue_number} is not a model conversion request. Skipping.")
-            return
+            continue  # 次の Issue をチェック
 
         # "Failed" ラベルが付いている場合はスキップ
         if "Failed" in issue_labels:
             print(f"Issue #{issue_number} has 'Failed' label. Skipping.")
-            return
+            continue  # 次の Issue をチェック
 
         # 重複している Issue がないかチェック
         duplicate_issue_number = check_for_duplicate_issue(title, issue_number, repository)
@@ -52,7 +54,7 @@ def main(issues_json_path, repository, run_id):
             print(f"Issue #{issue_number} is a duplicate of Issue #{duplicate_issue_number}.")
             # "Duplicate" ラベルを追加し、コメントを投稿してクローズ
             add_duplicate_label_and_comment(issue_number, duplicate_issue_number)
-            return
+            continue  # 次の Issue をチェック
 
         # ここからモデル変換処理を開始
         # タイトルからモデル名を抽出
@@ -93,7 +95,9 @@ def main(issues_json_path, repository, run_id):
             subprocess.run(comment_cmd, shell=True)
             label_cmd = f'gh issue edit {issue_number} --remove-label "In Progress" --add-label "Failed"'
             subprocess.run(label_cmd, shell=True)
-            return
+
+            found_issue_to_process = True  # 処理した Issue がある
+            break  # 処理を終えてループを抜ける
 
         # モデルのアップロードが成功したら、Issue にコメントしてラベルを更新してクローズ
         # アップロード先のURLを生成
@@ -118,8 +122,12 @@ def main(issues_json_path, repository, run_id):
         # Issue をクローズ
         close_cmd = f'gh issue close {issue_number}'
         subprocess.run(close_cmd, shell=True)
-    else:
-        print("処理すべきIssueはありません。")
+
+        found_issue_to_process = True  # 処理した Issue がある
+        break  # 処理を終えてループを抜ける
+
+    if not found_issue_to_process:
+        print("処理すべきモデル変換の Issue はありません。")
 
 
 def check_for_duplicate_issue(title, current_issue_number, repository):
