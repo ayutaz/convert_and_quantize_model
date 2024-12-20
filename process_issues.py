@@ -71,7 +71,7 @@ def main(issues_json_path, repository, run_id):
 
         # モデルのアップロードが成功したら、Issueにコメントしてラベルを更新してクローズ
         # アップロード先のURLを生成
-        repo_name = f"{safe_model_name}_onnx_ort"
+        repo_name = f"{safe_model_name}-ONNX-ORT"
         encoded_repo_name = urllib.parse.quote(repo_name)
         uploaded_model_url = f"https://huggingface.co/ort-community/{encoded_repo_name}"
 
