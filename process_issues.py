@@ -90,7 +90,7 @@ def main(issues_json_path, repository, run_id):
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: python process_issues.py '<issues_json_path>' '<repository>' '<run_id>'")
+        print("Usage: python process_issues.py '<issues_json_path>' '<repository>' '<run_id>' --upload")
         sys.exit(1)
     issues_json_path = sys.argv[1]
     repository = sys.argv[2]
