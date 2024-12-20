@@ -1,0 +1,40 @@
+# 無視するファイルやディレクトリを指定
+
+# Git 関連のファイルを除外
+.git
+.gitignore
+
+# Python キャッシュファイルを除外
+__pycache__/
+*.py[cod]
+
+# ビルドや開発に不要なディレクトリを除外
+build/
+dist/
+eggs/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+develop-eggs/
+.tox/
+.venv/
+.env/
+env/
+venv/
+ENV/
+.eggs/
+*.egg-info/
+.cache/
+.pytest_cache/
+
+# 大きなファイルやディレクトリを除外
+*.pt
+*.pth
+*.onnx
+data/
+logs/
+models/
+checkpoints/
+outputs/
