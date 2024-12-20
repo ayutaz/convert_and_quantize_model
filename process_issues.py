@@ -81,10 +81,15 @@ def main(issues_json_path, repository, run_id):
         with open('comment_body.txt', 'w', encoding='utf-8') as f:
             f.write(comment_body)
 
+        # コメントを投稿
         comment_cmd = f'gh issue comment {issue_number} --body-file "comment_body.txt"'
         subprocess.run(comment_cmd, shell=True)
-        label_cmd = f'gh issue edit {issue_number} --remove-label "In Progress" --add-label "Completed"'
+
+        # "In Progress" と "Failed" ラベルを削除し、"Completed" ラベルを追加
+        label_cmd = f'gh issue edit {issue_number} --remove-label "In Progress,Failed" --add-label "Completed"'
         subprocess.run(label_cmd, shell=True)
+
+        # Issue をクローズ
         close_cmd = f'gh issue close {issue_number}'
         subprocess.run(close_cmd, shell=True)
 
