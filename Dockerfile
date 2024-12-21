@@ -4,11 +4,8 @@ FROM python:3.11-slim AS builder
 # 必要なビルドツールとシステムパッケージをインストール
 # 不要なパッケージのインストールを避けるため、必要最小限に絞ります
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     mecab \
-    libmecab-dev \
-    swig \
     && rm -rf /var/lib/apt/lists/*
 
 # 作業ディレクトリを設定
@@ -33,8 +30,8 @@ RUN curl -L -o torch-2.5.1+cpu.cxx11.abi-cp311-cp311-linux_x86_64.whl \
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 不要なパッケージとファイルの削除を一度にまとめて実行
-RUN apt-get purge -y build-essential libmecab-dev swig && \
-    apt-get autoremove -y && \
+RUN apt-get autoremove -y && \
+    apt-get clean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     rm -rf /root/.cache/pip && \
