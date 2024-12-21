@@ -1,15 +1,15 @@
 import argparse
-import torch
-import os
 from pathlib import Path
-from transformers import AutoModel, AutoTokenizer
+
 import onnx
-import onnxruntime
+import torch
+from huggingface_hub import HfFolder
 from onnxruntime.transformers import optimizer
 from onnxruntime.transformers.fusion_options import FusionOptions
-import shutil
-from huggingface_hub import HfApi, Repository, HfFolder
+from transformers import AutoModel, AutoTokenizer
+
 from readme_generator import ReadmeGenerator
+
 
 def convert_model(model_name_or_path, output_dir, opset_version=20):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -156,8 +156,7 @@ def convert_to_ort(model_onnx_path, ort_model_path):
 
 def upload_to_huggingface(output_dir, model_name_or_path):
     # Import necessary modules
-    from huggingface_hub import create_repo, upload_folder, whoami, get_full_repo_name
-    import urllib.parse
+    from huggingface_hub import create_repo, upload_folder
     from huggingface_hub.utils import HfHubHTTPError
 
     # Get the logged-in token

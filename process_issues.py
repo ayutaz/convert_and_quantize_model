@@ -31,7 +31,7 @@ def main(repository, run_id):
         print(f"Processing Issue #{issue_number}: {title}")
 
         # タイトルがモデル変換用のフォーマットに合致するかチェック
-        if re.match(r'^[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+$', title.strip()):
+        if re.match(r'^[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-\.]+$', title.strip()):
             print(f"Issue #{issue_number} is a model conversion request.")
         else:
             print(f"Issue #{issue_number} is not a model conversion request. Skipping.")
