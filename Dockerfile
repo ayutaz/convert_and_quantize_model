@@ -1,11 +1,15 @@
 # ビルドステージ
 FROM python:3.11-slim AS builder
 
-# 必要なビルドツールをインストール
+# 必要なビルドツールとシステムパッケージをインストール
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
+    mecab \
+    libmecab-dev \
+    mecab-ipadic-utf8 \
+    swig \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI のインストール
@@ -50,6 +54,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxext6 \
     curl \
+    mecab \
+    mecab-ipadic-utf8 \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI のインストール
@@ -66,8 +72,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
 # 作業ディレクトリを設定
 WORKDIR /app
 
-# ビルドステージから必要なファイルをコピー
-COPY --from=builder /usr/local /usr/local
+# ビルドステージから必要な Python パッケージのみをコピー
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # 必要なファイルのみをコピー
 COPY process_issues.py ./
