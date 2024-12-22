@@ -4,6 +4,17 @@ This repository contains a Python script to convert Hugging Face models to ONNX 
 
 [日本語版READMEはこちら](README_ja.md)
 
+<!-- TOC -->
+* [Model Conversion and Quantization Script](#model-conversion-and-quantization-script)
+  * [Features](#features)
+  * [Requirements](#requirements)
+  * [Usage](#usage)
+  * [Example Usage](#example-usage)
+  * [Notes](#notes)
+  * [License](#license)
+  * [Contribution](#contribution)
+<!-- TOC -->
+
 ## Features
 
 - **Model Conversion**: Convert Hugging Face models to ONNX and ORT formats.
@@ -49,7 +60,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    The script `convert_model.py` converts and quantizes the model.
 
    ```bash
-   python convert_model.py --model_name_or_path your-model-name --output_dir output_directory
+   python convert_model.py --model your-model-name --output_dir output_directory
    ```
 
    - Replace `your-model-name` with the name or path of the Hugging Face model you want to convert.
@@ -58,7 +69,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    **Example:**
 
    ```bash
-   python convert_model.py --model_name_or_path bert-base-uncased --output_dir bert_onnx
+   python convert_model.py --model bert-base-uncased --output_dir bert_onnx
    ```
 
 4. **Upload to Hugging Face (Optional)**
@@ -66,7 +77,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    To upload the converted models to Hugging Face Hub, add the `--upload` flag.
 
    ```bash
-   python convert_model.py --model_name_or_path your-model-name --output_dir output_directory --upload
+   python convert_model.py --model your-model-name --output_dir output_directory --upload
    ```
 
    Make sure you are logged in to Hugging Face CLI:
@@ -74,35 +85,6 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    ```bash
    huggingface-cli login
    ```
-
-## Script Overview
-
-### `convert_model.py`
-
-This script performs the following steps:
-
-- Loads the specified Hugging Face model and tokenizer.
-- Exports the model to ONNX format with dynamic axes.
-- Optimizes the ONNX model using `onnxruntime-tools`.
-- Performs quantization (FP16, INT8, UINT8) on the optimized model.
-- Converts the optimized and quantized models to ORT format.
-- Generates README files (`README.md` and `README_ja.md`) with sample usage code.
-- Optionally uploads the models and README files to Hugging Face Hub.
-
-### Key Functions
-
-- `convert_model(model_name_or_path, output_dir, opset_version)`: Main function to convert and optimize the model.
-- `optimize_model(onnx_model_path, optimized_model_path, opset_version, model_type, model_config)`: Optimizes the ONNX model.
-- `quantize_model(optimized_model_path, onnx_models_dir, ort_models_dir)`: Performs quantization on the optimized model.
-- `convert_to_ort(model_onnx_path, ort_model_path)`: Converts an ONNX model to ORT format.
-- `upload_to_huggingface(output_dir, model_name_or_path)`: Uploads the models and README files to Hugging Face Hub.
-- `main()`: Parses command-line arguments and initiates the conversion process.
-
-### Code Structure
-
-- The code is modularized for better readability and maintenance.
-- The `ReadmeGenerator` class in `readme_generator.py` handles the creation of README files in both English and Japanese.
-- The script uses `argparse` for command-line argument parsing.
 
 ## Example Usage
 

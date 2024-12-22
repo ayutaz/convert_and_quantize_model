@@ -4,6 +4,17 @@
 
 [Click here for the English README](README.md)
 
+<!-- TOC -->
+* [モデル変換と量子化スクリプト](#モデル変換と量子化スクリプト)
+  * [特徴](#特徴)
+  * [必要要件](#必要要件)
+  * [使い方](#使い方)
+  * [使用例](#使用例)
+  * [注意事項](#注意事項)
+  * [ライセンス](#ライセンス)
+  * [貢献](#貢献)
+<!-- TOC -->
+
 ## 特徴
 
 - **モデル変換**: Hugging FaceのモデルをONNXおよびORT形式に変換。
@@ -49,7 +60,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    `convert_model.py` スクリプトはモデルの変換と量子化を行います。
 
    ```bash
-   python convert_model.py --model_name_or_path あなたのモデル名 --output_dir 出力ディレクトリ
+   python convert_model.py --model あなたのモデル名 --output_dir 出力ディレクトリ
    ```
 
    - `あなたのモデル名` を変換したいHugging Faceのモデル名またはパスに置き換えてください。
@@ -58,7 +69,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    **例:**
 
    ```bash
-   python convert_model.py --model_name_or_path bert-base-japanese --output_dir bert_onnx
+   python convert_model.py --model bert-base-japanese --output_dir bert_onnx
    ```
 
 4. **Hugging Faceへのアップロード（オプション）**
@@ -66,7 +77,7 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    変換されたモデルをHugging Face Hubにアップロードするには、`--upload` フラグを追加します。
 
    ```bash
-   python convert_model.py --model_name_or_path あなたのモデル名 --output_dir 出力ディレクトリ --upload
+   python convert_model.py --model あなたのモデル名 --output_dir 出力ディレクトリ --upload
    ```
 
    Hugging Face CLIにログインしていることを確認してください。
@@ -74,35 +85,6 @@ pip install torch transformers onnx onnxruntime onnxconverter-common onnxruntime
    ```bash
    huggingface-cli login
    ```
-
-## スクリプトの概要
-
-### `convert_model.py`
-
-このスクリプトは以下の処理を行います。
-
-- 指定されたHugging Faceモデルとトークナイザーをロード。
-- モデルを動的軸を使用してONNX形式にエクスポート。
-- `onnxruntime-tools` を使用してONNXモデルを最適化。
-- 最適化されたモデルに対して量子化（FP16、INT8、UINT8）を実施。
-- 最適化および量子化されたモデルをORT形式に変換。
-- サンプルコードを含むREADMEファイル（`README.md`と`README_ja.md`）を生成。
-- オプションでモデルとREADMEファイルをHugging Face Hubにアップロード。
-
-### 主要な関数
-
-- `convert_model(model_name_or_path, output_dir, opset_version)`: モデルの変換と最適化のメイン関数。
-- `optimize_model(onnx_model_path, optimized_model_path, opset_version, model_type, model_config)`: ONNXモデルを最適化。
-- `quantize_model(optimized_model_path, onnx_models_dir, ort_models_dir)`: 最適化されたモデルに対して量子化を実行。
-- `convert_to_ort(model_onnx_path, ort_model_path)`: ONNXモデルをORT形式に変換。
-- `upload_to_huggingface(output_dir, model_name_or_path)`: モデルとREADMEファイルをHugging Face Hubにアップロード。
-- `main()`: コマンドライン引数を解析し、変換プロセスを開始。
-
-### コード構成
-
-- コードは可読性とメンテナンス性を高めるためにモジュール化されています。
-- `readme_generator.py` の `ReadmeGenerator` クラスは、英語と日本語のREADMEファイルの作成を担当します。
-- スクリプトは `argparse` を使用してコマンドライン引数を解析します。
 
 ## 使用例
 
